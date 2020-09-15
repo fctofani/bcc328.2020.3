@@ -24,6 +24,7 @@ and exp_basic =
   | CallExp       of symbol * lexp list
   | VarExp        of lvar
   | LetExp        of ldec list * lexp
+  | AssignExp     of lvar * lexp
   [@@deriving show]
 
 and binary_op =

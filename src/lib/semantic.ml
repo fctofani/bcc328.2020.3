@@ -58,12 +58,19 @@ let set reference value =
 
 let rec check_exp env (pos, (exp, tref)) =
   match exp with
-  | A.BoolExp _ -> set tref T.BOOL
-  | A.IntExp  _ -> set tref T.INT
-  | A.RealExp _ -> set tref T.REAL
-  | A.StringExp _ -> set tref T.STRING
-  | A.LetExp (decs, body) -> check_exp_let env pos tref decs body
-  | _ -> Error.fatal "unimplemented"
+  | A.BoolExp _                         -> set tref T.BOOL
+  | A.IntExp  _                         -> set tref T.INT
+  | A.RealExp _                         -> set tref T.REAL
+  | A.StringExp _                       -> set tref T.STRING
+  | A.LetExp (decs, body)               -> check_exp_let env pos tref decs body
+  | A.VarExp value                      -> check_var env value tref
+  | A.AssignExp (var, value)            -> compatible (check_var env var tref) (check_exp env value) pos; set tref T.VOID
+  | _                                   -> Error.fatal "unimplemented"
+
+and check_var env (pos, var) tref = 
+  match var with
+  | A.SimpleVar value -> set tref (varlook env.venv value pos)
+  | _                 -> Error.fatal "unimplemented"
 
 and check_exp_let env pos tref decs body =
   let env' = List.fold_left check_dec env decs in
