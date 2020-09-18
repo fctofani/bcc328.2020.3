@@ -66,6 +66,7 @@ let rec check_exp env (pos, (exp, tref)) =
   | A.VarExp value                      -> check_var env value tref
   | A.AssignExp (var, value)            -> compatible (check_var env var tref) (check_exp env value) pos; set tref T.VOID
   | A.BinaryExp (left, op, right)       -> check_op env pos left op right tref
+  | A.NegativeExp value                 -> check_negative env pos value tref
   | _                                   -> Error.fatal "unimplemented"
 
 and check_op env pos left operator right tref =
@@ -97,6 +98,13 @@ and check_op env pos left operator right tref =
       | _ -> type_mismatch pos T.BOOL l 
     end
   | _ -> Error.fatal "Unimplemented"
+
+and check_negative env pos value tref = 
+  let v = check_exp env value in
+    match v with
+    | T.REAL -> set tref T.REAL
+    | T.INT -> set tref T.INT
+    | _ -> type_mismatch pos T.INT v
 
 and check_var env (pos, var) tref = 
   match var with
