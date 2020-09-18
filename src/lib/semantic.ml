@@ -69,6 +69,8 @@ let rec check_exp env (pos, (exp, tref)) =
   | A.NegativeExp value                 -> check_negative env pos value tref
   | A.ExpSeq (explist)                  -> check_sequence env explist tref
   | A.IfExp (cond, athen, aelse)        -> check_if_else env pos cond athen aelse tref
+  | A.WhileExp (cond, body)             -> check_while env pos cond body tref
+  | A.BreakExp                          -> check_break env pos tref
   | _                                   -> Error.fatal "unimplemented"
 
 and check_op env pos left operator right tref =
@@ -99,7 +101,7 @@ and check_op env pos left operator right tref =
       | T.BOOL, _ -> type_mismatch pos l r
       | _ -> type_mismatch pos T.BOOL l 
     end
-  | _ -> Error.fatal "Unimplemented"
+  | _ -> type_mismatch pos l r
 
 and check_negative env pos value tref = 
   let v = check_exp env value in
@@ -128,6 +130,19 @@ and check_if_else env pos cond athen aelse tref =
         | None -> set tref T.VOID
       end
     | _ -> type_mismatch pos T.BOOL c
+
+and check_while {venv; tenv; inloop} pos cond body tref =
+  let c = check_exp {venv; tenv; inloop} cond in
+    match c with
+    | T.BOOL -> 
+      ignore (check_exp {venv; tenv; inloop = true} body);
+      set tref T.VOID
+    | _ -> type_mismatch pos T.BOOL c
+
+and check_break {venv; tenv; inloop} pos tref = 
+  match inloop with
+  | true -> set tref T.VOID
+  | _ -> Error.error pos "break outside of loop"
 
 and check_var env (pos, var) tref = 
   match var with
