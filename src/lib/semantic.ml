@@ -65,7 +65,38 @@ let rec check_exp env (pos, (exp, tref)) =
   | A.LetExp (decs, body)               -> check_exp_let env pos tref decs body
   | A.VarExp value                      -> check_var env value tref
   | A.AssignExp (var, value)            -> compatible (check_var env var tref) (check_exp env value) pos; set tref T.VOID
+  | A.BinaryExp (left, op, right)       -> check_op env pos left op right tref
   | _                                   -> Error.fatal "unimplemented"
+
+and check_op env pos left operator right tref =
+  let l = check_exp env left in
+  let r = check_exp env right in
+  match operator with
+  | A.Plus | A.Minus | A.Times | A.Div | A.Mod | A.Power -> 
+    begin 
+      match l, r with
+      | T.INT, T.INT -> set tref T.INT
+      | T.REAL, T.INT | T.INT, T.REAL | T.REAL, T.REAL -> set tref T.REAL
+      | _ -> type_mismatch pos l r
+    end
+  | A.Equal | A.NotEqual ->
+    compatible l r pos;
+    set tref T.BOOL
+  | A.GreaterThan | A.GreaterEqual | A.LowerThan | A.LowerEqual -> 
+    begin
+      match l, r with
+      | T.BOOL, _ | _, T.BOOL | T.VOID, _ | _, T.VOID -> type_mismatch pos l r
+      | T.INT, T.INT | T.REAL, T.INT | T.INT, T.REAL | T.REAL, T.REAL -> set tref T.BOOL
+      | _ -> compatible l r pos; set tref T.BOOL
+    end
+  | A.Or | A.And -> 
+    begin
+      match l, r with
+      | T.BOOL, T.BOOL -> set tref T.BOOL
+      | T.BOOL, _ -> type_mismatch pos l r
+      | _ -> type_mismatch pos T.BOOL l 
+    end
+  | _ -> Error.fatal "Unimplemented"
 
 and check_var env (pos, var) tref = 
   match var with
