@@ -54,6 +54,16 @@ let set reference value =
   reference := Some value;
   value
 
+let rec exists elem lst =
+  match lst with
+  | [] -> false
+  | head::tail -> elem = head || exists elem tail
+
+let rec dup_exists lst =
+  match lst with
+  | [] -> false
+  | head::tail -> (exists head tail) || dup_exists lst
+
 (* Checking expressions *)
 
 let rec check_exp env (pos, (exp, tref)) =
@@ -70,6 +80,7 @@ let rec check_exp env (pos, (exp, tref)) =
   | A.ExpSeq (explist)                  -> check_sequence env explist tref
   | A.IfExp (cond, athen, aelse)        -> check_if_else env pos cond athen aelse tref
   | A.WhileExp (cond, body)             -> check_while env pos cond body tref
+  | A.CallExp (name, args)              -> check_call env pos name args tref
   | A.BreakExp                          -> check_break env pos tref
   | _                                   -> Error.fatal "unimplemented"
 
@@ -154,6 +165,21 @@ and check_exp_let env pos tref decs body =
   let tbody = check_exp env' body in
   set tref tbody
 
+and check_call env pos name args tref = 
+  let (params, rtype) = funlook env.venv name pos in
+  if (List.length params) <> (List.length args)
+    then 
+      Error.error pos "incorrect argument number for function"
+    else 
+      check_call_types env pos params args; 
+      set tref rtype; 
+
+and check_call_types env pos params body =
+  match params, body with
+  | [], [] -> ()
+  | (p::ptail, b::btail) -> compatible (check_exp env b) p pos; check_call_types env pos ptail btail;
+  | _ -> Error.fatal "unexpected error"
+
 (* Checking declarations *)
 
 and check_dec_var env pos ((name, type_opt, init), tref) =
@@ -170,9 +196,45 @@ and check_dec_var env pos ((name, type_opt, init), tref) =
   let venv' = S.enter name (VarEntry tvar) env.venv in
   {env with venv = venv'}
 
+and check_dec_fun env pos f =
+  let env' = first_stage_cf env pos f in
+  second_stage_cf env' pos f;
+  env'
+
+and check_params env pos params acc =
+  match params with
+  | [] -> acc
+  | (_, ptype)::tail -> check_params env pos tail ((tylook env.tenv ptype pos)::acc)
+  
+and first_stage_cf env pos ((funcid, params, returntype, body), tref) =
+  if dup_exists params 
+  then
+    Error.error pos "duplicated parameters"
+  else
+    let ptypes = check_params env pos params [] in
+    let rtype = tylook env.tenv returntype pos in
+    let venv' = S.enter funcid (FunEntry (ptypes, rtype)) env.venv in
+      ignore (set tref rtype);
+      {env with venv = venv'}
+
+and second_stage_cf env pos ((funcid, params, returntype, body), tref) = 
+  let (_,ftype) = funlook env.venv funcid pos in
+  let env' = add_to_fenv env pos params in
+    compatible ftype (check_exp env' body) pos
+
+and add_to_fenv env pos params =
+  match params with
+  | [] -> env
+  | ((pid, ptype))::tail -> 
+    let ptype' = tylook env.tenv ptype pos in
+    let venv' = S.enter pid (VarEntry ptype') env.venv in
+    let env' = {env with venv=venv'} in
+    add_to_fenv env' pos tail
+
 and check_dec env (pos, dec) =
   match dec with
   | A.VarDec x -> check_dec_var env pos x
+  | A.FunDec f -> check_dec_fun env pos f
   | _ -> Error.fatal "unimplemented"
 
 let semantic program =

@@ -50,6 +50,7 @@ and var =
 
 and dec =
   | VarDec of vardec typed
+  | FunDec of (Symbol.symbol * (Symbol.symbol * Symbol.symbol) list * Symbol.symbol * lexp) typed
   [@@deriving show]
 
 and vardec = Symbol.symbol * Symbol.symbol option * lexp

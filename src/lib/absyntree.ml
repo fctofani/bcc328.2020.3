@@ -82,10 +82,19 @@ and tree_of_var var =
   match var with
   | SimpleVar x -> mktr (sprintf "SimpleVar %s" (Symbol.name x)) []
 
+and tree_of_param (p, t) =
+  mktr "Parameter" [tree_of_symbol p; tree_of_symbol t]
+
+and tree_of_args p = 
+  mktr "Arguments" (List.map tree_of_param p)
+
+and tree_of_fundec (f, p, t, e) =
+  mktr "FunDec" [tree_of_symbol f; tree_of_args p; tree_of_symbol t; tree_of_lexp e]
   
 and tree_of_dec dec =
   match dec with
   | VarDec vardec -> tree_of_typed tree_of_vardec vardec
+  | FunDec fundec -> tree_of_typed tree_of_fundec fundec
 
 and tree_of_vardec (v, t, i) =
   mktr "VarDec" [ tree_of_symbol v;
